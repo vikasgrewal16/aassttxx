@@ -1,0 +1,14 @@
+name: astx
+channels:
+  - nodefaults
+  - conda-forge
+dependencies:
+  - graphviz
+  - python
+  - poetry >=1.5
+  - nodejs # used by semantic-release
+  - shellcheck
+  - pip
+  - pip:
+      # distlib issue
+      - paginate
