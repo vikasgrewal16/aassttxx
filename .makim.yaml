@@ -1,0 +1,94 @@
+version: 1.0
+groups:
+  clean:
+    tasks:
+      tmp:
+        help: remove build artifacts, compiled files, and cache
+        shell: bash
+        run: |
+          find . -name '*.egg-info' -exec rm -rf {} +
+          find . -name '*.egg' -exec rm -f {} +
+          find . -name '*.pyc' -exec rm -f {} +
+          find . -name '*.pyo' -exec rm -f {} +
+          find . -name '__pycache__' -exec rm -rf {} +
+          find . -name '*~' -exec rm -f {} +
+          rm -rf build/
+          rm -rf dist/
+          rm -rf .eggs/
+          rm -f .coverage
+          rm -rf htmlcov/
+          rm -rf .pytest_cache
+
+  tests:
+    tasks:
+      linter:
+        help: run linter tools
+        run: |
+          pre-commit install
+          pre-commit run --all-files
+
+      unit:
+        help: run tests
+        args:
+          path:
+            help: Specify the location of the tests
+            type: string
+            default: ""
+          params:
+            help: Specify parameters to be used for tests
+            type: string
+            default: "-vv"
+        shell: bash
+        run: |
+          pytest \
+            --cov=astx \
+            --cov-fail-under=95 \
+            --cov-report term-missing \
+            --no-cov-on-fail ${{ args.path }} ${{ args.params }}
+
+      notebooks:
+        help: test jupyter notebooks
+        run: pytest -vv --nbmake docs/tutorials
+
+      ci:
+        help: run the sames tests executed on CI
+        dependencies:
+          - task: tests.unit
+          - task: tests.notebooks
+          - task: tests.linter
+
+  docs:
+    tasks:
+      build:
+        help: build documentation
+        run: |
+          mkdocs build --config-file mkdocs.yaml
+          echo "astx.arxlang.org" > ./build/CNAME
+
+      preview:
+        help: preview documentation page locally
+        run: mkdocs serve --watch docs --config-file mkdocs.yaml
+
+  release:
+    vars:
+      app: |
+        npx --yes \
+          -p semantic-release \
+          -p conventional-changelog-conventionalcommits \
+          -p "@semantic-release/commit-analyzer" \
+          -p "@semantic-release/release-notes-generator" \
+          -p "@semantic-release/changelog" \
+          -p "@semantic-release/exec" \
+          -p "@semantic-release/github" \
+          -p "@semantic-release/git" \
+          -p "semantic-release-replace-plugin" \
+          semantic-release
+
+    tasks:
+      ci:
+        help: run semantic release on CI
+        run: ${{ vars.app }} --ci
+
+      dry:
+        help: run semantic release in dry-run mode
+        run: ${{ vars.app }} --dry-run
